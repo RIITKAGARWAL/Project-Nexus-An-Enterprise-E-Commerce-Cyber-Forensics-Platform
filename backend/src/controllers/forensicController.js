@@ -32,8 +32,11 @@ const verifyAuditChain = async (req, res) => {
         break;
       }
 
+      // Ensure timestamp is normalized back to the exact ISO string format used during creation
+      const formattedTimestamp = new Date(log.timestamp).toISOString();
+
       // Recompute the hash to verify current integrity
-      const rawStringForHashing = `${log.previous_hash}:${log.action}:${log.actor_id || 'SYSTEM'}:${log.payload_encrypted}:${log.timestamp}`;
+      const rawStringForHashing = `${log.previous_hash}:${log.action}:${log.actor_id || 'SYSTEM'}:${log.payload_encrypted}:${formattedTimestamp}`;
       const recomputedHash = crypto.createHash('sha256').update(rawStringForHashing).digest('hex');
 
       if (recomputedHash !== log.current_hash) {
