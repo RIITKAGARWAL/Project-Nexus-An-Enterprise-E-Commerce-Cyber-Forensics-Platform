@@ -1,11 +1,34 @@
 const db = require('../config/db');
+const redisClient = require('../config/redis');
 const { logAction } = require('../services/auditService');
 
 const getAllProducts = async (req, res) => {
   try {
+    const cacheKey = 'cache:products:all';
+    
+    // Check Redis cache first
+    if (redisClient.isOpen) {
+      const cachedProducts = await redisClient.get(cacheKey);
+      if (cachedProducts) {
+        return res.status(200).json({
+          status: 'SUCCESS',
+          source: 'cache',
+          count: JSON.parse(cachedProducts).length,
+          products: JSON.parse(cachedProducts)
+        });
+      }
+    }
+
     const result = await db.query('SELECT * FROM products ORDER BY id DESC');
+    
+    // Save to Redis cache for 60 seconds
+    if (redisClient.isOpen) {
+      await redisClient.setEx(cacheKey, 60, JSON.stringify(result.rows));
+    }
+
     res.status(200).json({
       status: 'SUCCESS',
+      source: 'database',
       count: result.rows.length,
       products: result.rows
     });
@@ -16,7 +39,7 @@ const getAllProducts = async (req, res) => {
 
 const createProduct = async (req, res) => {
   const { title, description, price, stock } = req.body;
-  const sellerId = req.user.id; // Extracted from verified JWT middleware
+  const sellerId = req.user.id;
 
   try {
     const insertResult = await db.query(
@@ -27,7 +50,11 @@ const createProduct = async (req, res) => {
 
     const newProduct = insertResult.rows[0];
 
-    // Secure audit log for product creation
+    // Invalidate product cache upon creation
+    if (redisClient.isOpen) {
+      await redisClient.del('cache:products:all');
+    }
+
     await logAction('PRODUCT_CREATED', sellerId, {
       productId: newProduct.id,
       title: newProduct.title,
