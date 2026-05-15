@@ -54,12 +54,14 @@ const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const forensicRoutes = require('./routes/forensicRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/forensics', forensicRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.listen(PORT, () => {
   console.log(`[Nexus Core] Server running on port ${PORT}`);
