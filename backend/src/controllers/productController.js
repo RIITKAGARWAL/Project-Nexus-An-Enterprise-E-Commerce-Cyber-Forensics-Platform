@@ -2,35 +2,77 @@ const db = require('../config/db');
 const redisClient = require('../config/redis');
 const { logAction } = require('../services/auditService');
 
+/**
+ * Retrieves products with support for Redis caching, search, price filtering, and pagination.
+ */
 const getAllProducts = async (req, res) => {
   try {
-    const cacheKey = 'cache:products:all';
+    const { search, minPrice, maxPrice, page = 1, limit = 10 } = req.query;
     
-    // Check Redis cache first
+    // Construct a dynamic cache key based on query parameters to ensure precise cache hits
+    const cacheKey = `cache:products:q:${search || 'all'}:min:${minPrice || 'none'}:max:${maxPrice || 'none'}:p:${page}:l:${limit}`;
+
+    // 1. Check Redis cache first
     if (redisClient.isOpen) {
       const cachedProducts = await redisClient.get(cacheKey);
       if (cachedProducts) {
         return res.status(200).json({
           status: 'SUCCESS',
           source: 'cache',
-          count: JSON.parse(cachedProducts).length,
-          products: JSON.parse(cachedProducts)
+          ...JSON.parse(cachedProducts)
         });
       }
     }
 
-    const result = await db.query('SELECT * FROM products ORDER BY id DESC');
-    
-    // Save to Redis cache for 60 seconds
+    let query = 'SELECT * FROM products WHERE 1=1';
+    const queryParams = [];
+    let paramIndex = 1;
+
+    // 2. Optional keyword search on title or description
+    if (search) {
+      query += ` AND (title ILIKE $${paramIndex} OR description ILIKE $${paramIndex})`;
+      queryParams.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // 3. Optional price filtering
+    if (minPrice) {
+      query += ` AND price >= $${paramIndex}`;
+      queryParams.push(minPrice);
+      paramIndex++;
+    }
+    if (maxPrice) {
+      query += ` AND price <= $${paramIndex}`;
+      queryParams.push(maxPrice);
+      paramIndex++;
+    }
+
+    // 4. Pagination (LIMIT and OFFSET)
+    const parsedLimit = parseInt(limit, 10);
+    const parsedPage = parseInt(page, 10);
+    const offset = (parsedPage - 1) * parsedLimit;
+
+    query += ` ORDER BY id DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(parsedLimit, offset);
+
+    const result = await db.query(query, queryParams);
+
+    const responsePayload = {
+      page: parsedPage,
+      limit: parsedLimit,
+      count: result.rows.length,
+      products: result.rows
+    };
+
+    // 5. Save query result to Redis cache for 60 seconds
     if (redisClient.isOpen) {
-      await redisClient.setEx(cacheKey, 60, JSON.stringify(result.rows));
+      await redisClient.setEx(cacheKey, 60, JSON.stringify(responsePayload));
     }
 
     res.status(200).json({
       status: 'SUCCESS',
       source: 'database',
-      count: result.rows.length,
-      products: result.rows
+      ...responsePayload
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -50,9 +92,12 @@ const createProduct = async (req, res) => {
 
     const newProduct = insertResult.rows[0];
 
-    // Invalidate product cache upon creation
+    // Invalidate all product cache variants upon creating a new product
     if (redisClient.isOpen) {
-      await redisClient.del('cache:products:all');
+      const keys = await redisClient.keys('cache:products:*');
+      if (keys.length > 0) {
+        await redisClient.del(keys);
+      }
     }
 
     await logAction('PRODUCT_CREATED', sellerId, {
