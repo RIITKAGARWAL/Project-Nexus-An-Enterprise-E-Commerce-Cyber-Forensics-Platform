@@ -1,6 +1,9 @@
 const db = require('../config/db');
 const { logAction } = require('../services/auditService');
 
+/**
+ * Creates a new customer order with payment status and optional EMI, logging to the forensic chain.
+ */
 const createOrder = async (req, res) => {
   const { totalAmount, emiSelected } = req.body;
   const userId = req.user.id; // Extracted from verified JWT middleware
@@ -30,10 +33,16 @@ const createOrder = async (req, res) => {
   }
 };
 
+/**
+ * Retrieves the complete order history for the authenticated user.
+ */
 const getUserOrders = async (req, res) => {
   const userId = req.user.id;
   try {
-    const result = await db.query('SELECT * FROM orders WHERE user_id = $1 ORDER BY id DESC', [userId]);
+    const result = await db.query(
+      'SELECT * FROM orders WHERE user_id = $1 ORDER BY id DESC', 
+      [userId]
+    );
     res.status(200).json({
       status: 'SUCCESS',
       count: result.rows.length,
@@ -44,4 +53,7 @@ const getUserOrders = async (req, res) => {
   }
 };
 
-module.exports = { createOrder, getUserOrders };
+// Export both names to guarantee route compatibility
+const getUserOrderHistory = getUserOrders;
+
+module.exports = { createOrder, getUserOrders, getUserOrderHistory };
