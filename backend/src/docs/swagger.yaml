@@ -1,0 +1,38 @@
+openapi: 3.0.0
+info:
+  title: Project Nexus Enterprise Core API
+  version: 1.0.0
+  description: Enterprise E-Commerce & Cyber Forensics Platform Backend Documentation
+servers:
+  - url: http://localhost:5000/api
+    description: Local Development Server
+paths:
+  /health:
+    get:
+      summary: System Health Check
+      responses:
+        '200':
+          description: System is online and PostgreSQL is connected
+  /auth/login:
+    post:
+      summary: Authenticate User
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Returns JWT authentication token
+  /forensics/verify:
+    get:
+      summary: Verify Audit Log Chain Integrity
+      responses:
+        '200':
+          description: Returns cryptographic verification status (VERIFIED_SECURE or COMPROMISED)

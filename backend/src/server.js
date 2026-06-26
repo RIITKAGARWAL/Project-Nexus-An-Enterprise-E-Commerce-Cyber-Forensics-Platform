@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const db = require('./config/db');
 const initializeDatabase = require('./config/initDb');
+const setupSwagger = require('./config/swagger');
 
 dotenv.config();
 
@@ -14,6 +15,9 @@ app.use(cors());
 
 // Initialize DB Tables on Boot
 initializeDatabase();
+
+// Setup Swagger API Documentation Portal
+setupSwagger(app);
 
 app.get('/api/health', async (req, res) => {
   try {
