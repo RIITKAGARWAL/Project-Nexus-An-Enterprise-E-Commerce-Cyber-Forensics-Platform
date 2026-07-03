@@ -74,7 +74,14 @@ app.use('/api/forensics', forensicRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
 
-// 2. Register Global Exception Handler at the Very Bottom of the Stack
+// 2. Catch-all 404 Middleware for Unmatched Routes
+app.use((req, res, next) => {
+  const error = new Error(`Route not found: ${req.originalUrl}`);
+  error.statusCode = 404;
+  next(error);
+});
+
+// 3. Register Global Exception Handler at the Very Bottom of the Stack
 app.use(errorHandler);
 
 app.listen(PORT, () => {
