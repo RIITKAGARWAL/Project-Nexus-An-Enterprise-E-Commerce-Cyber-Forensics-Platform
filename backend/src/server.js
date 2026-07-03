@@ -4,6 +4,8 @@ const dotenv = require('dotenv');
 const db = require('./config/db');
 const initializeDatabase = require('./config/initDb');
 const setupSwagger = require('./config/swagger');
+const requestLogger = require('./middleware/requestLogger');
+const errorHandler = require('./middleware/errorHandler');
 
 dotenv.config();
 
@@ -12,6 +14,9 @@ const PORT = process.env.PORT || 5000;
 
 app.use(express.json());
 app.use(cors());
+
+// 1. Register Structured Request Logger Early in Middleware Stack
+app.use(requestLogger);
 
 // Initialize DB Tables on Boot
 initializeDatabase();
@@ -68,6 +73,9 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/forensics', forensicRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
+
+// 2. Register Global Exception Handler at the Very Bottom of the Stack
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`[Nexus Core] Server running on port ${PORT}`);
