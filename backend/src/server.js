@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const dotenv = require('dotenv');
 const db = require('./config/db');
 const initializeDatabase = require('./config/initDb');
@@ -12,10 +13,13 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// 1. Apply Enterprise Security Headers via Helmet
+app.use(helmet());
+
 app.use(express.json());
 app.use(cors());
 
-// 1. Register Structured Request Logger Early in Middleware Stack
+// 2. Register Structured Request Logger Early in Middleware Stack
 app.use(requestLogger);
 
 // Initialize DB Tables on Boot
@@ -74,14 +78,14 @@ app.use('/api/forensics', forensicRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
 
-// 2. Catch-all 404 Middleware for Unmatched Routes
+// 3. Catch-all 404 Middleware for Unmatched Routes
 app.use((req, res, next) => {
   const error = new Error(`Route not found: ${req.originalUrl}`);
   error.statusCode = 404;
   next(error);
 });
 
-// 3. Register Global Exception Handler at the Very Bottom of the Stack
+// 4. Register Global Exception Handler at the Very Bottom of the Stack
 app.use(errorHandler);
 
 app.listen(PORT, () => {
